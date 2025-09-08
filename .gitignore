@@ -1,0 +1,7 @@
+__pycache__/
+src/__pycache__/
+Frontend/node_modules/
+htmlcov/
+venv/
+.idea
+.coverage
