@@ -3,5 +3,6 @@ src/__pycache__/
 Frontend/node_modules/
 htmlcov/
 venv/
+.venv/
 .idea
 .coverage
