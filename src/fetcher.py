@@ -172,12 +172,22 @@ class Fetcher:
 
     @staticmethod
     def _extract_price_from_node(node_text: str) -> Optional[int]:
-        """Given a text snippet like '€ 12.500,-' or '€12.500', extract integer EUR value or return None."""
-        if not node_text:
+        """
+        Given a text snippet like '€ 12.500,-' or '€ 20.900,- € 19.900 Super prezzo', 
+        extract the last integer EUR value.
+        """
+        if not node_text or "€" not in node_text:
             return None
-        # remove currency symbols and non-digit except thousand separators
-        # keep digits only
-        digits = "".join(ch for ch in node_text if ch.isdigit())
+        
+        # Split by currency symbol. If multiple prices are present (e.g., strikethrough old price),
+        # the last one is typically the current, relevant price.
+        # Example: '€ 20.900,- € 19.900 Super prezzo' -> becomes ' 19.900 Super prezzo'
+        price_str_to_parse = node_text.split('€')[-1]
+
+        # Extract only digits from the relevant part of the string.
+        # This handles thousand separators ('.') and other text/symbols (',-').
+        digits = "".join(ch for ch in price_str_to_parse if ch.isdigit())
+        
         if not digits:
             return None
         try:
@@ -219,10 +229,9 @@ class Fetcher:
         import statistics
         try:
             median_price = int(statistics.median(prices))
-            price_stddev = statistics.stdev(prices)
+            price_stddev = statistics.stdev(prices) if len(prices) > 1 else 0.0
         except Exception:
             median_price = int(prices[0])
-            price_stddev = 0
+            price_stddev = 0.0
 
         return median_price, price_stddev
-
