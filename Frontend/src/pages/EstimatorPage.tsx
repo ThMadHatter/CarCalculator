@@ -275,6 +275,7 @@ const EstimatorPage: React.FC = () => {
             
             <CarValueChart
               yearValues={results.year_values}
+              stdDev={results.price_stddev}
               registrationYear={currentFormData.registration_year}
               purchaseYearIndex={currentFormData.purchase_year_index}
             />

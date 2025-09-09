@@ -1,74 +1,75 @@
 import React from 'react';
 import {
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  ReferenceArea,
-  Legend
+  Legend,
 } from 'recharts';
 import { Card, Space } from 'antd';
 import { LineChartOutlined } from '@ant-design/icons';
 import { formatCurrency } from '../../utils/numbers';
 
 interface CarValueChartProps {
-  yearValues: number[];              // series (chronological)
-  registrationYear: number;          // base year for the first element in yearValues
-  purchaseYearIndex: number;         // 0-based index into yearValues (purchase year)
-  priceAvg?: number | null;          // optional average price (single value)
-  priceStddev?: number | null;       // optional standard deviation (single value)
+  yearValues: number[];
+  stdDev?: (number | undefined)[];
+  registrationYear: number;
+  purchaseYearIndex: number;
 }
 
 const CarValueChart: React.FC<CarValueChartProps> = ({
   yearValues,
+  stdDev = [],
   registrationYear,
   purchaseYearIndex,
-  priceAvg = null,
-  priceStddev = null
 }) => {
-  // Defensive defaults
-  const avg = typeof priceAvg === 'number' ? priceAvg : null;
-  const stddev = typeof priceStddev === 'number' ? Math.max(0, priceStddev) : 0;
+  const chartData = yearValues.map((value, index) => {
+    const deviation = stdDev[index];
+    const upperBound = deviation !== undefined ? value + deviation : value;
+    const lowerBound = deviation !== undefined ? Math.max(0, value - deviation) : value;
 
-  // Precompute band bounds (ensure non-negative lower bound)
-  const bandUpper = avg !== null ? avg + stddev : null;
-  const bandLower = avg !== null ? Math.max(0, avg - stddev) : null;
+    return {
+      year: registrationYear + index,
+      value,
+      isPurchaseYear: index === purchaseYearIndex,
+      range: [lowerBound, upperBound],
+    };
+  });
 
-  // Transform data for chart.
-  // Assumes yearValues[0] corresponds to registrationYear (chronological).
-  const chartData = yearValues.map((value, index) => ({
-    year: registrationYear + index,
-    value,
-    avg: avg !== null ? avg : undefined, // same avg value for all points (if available)
-    isPurchaseYear: index === purchaseYearIndex
-  }));
-
-  const purchaseYear = registrationYear + purchaseYearIndex; // 0-based mapping
+  const purchaseYear = registrationYear + purchaseYearIndex;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      const value = payload.find((p) => p.dataKey === 'value')?.value;
+      const range = payload.find((p) => p.dataKey === 'range')?.value;
+
       return (
         <div className="bg-white p-3 border rounded shadow-lg">
           <p className="font-medium">Year: {label}</p>
-          <p className="text-blue-600">Value: {formatCurrency(payload[0].value)}</p>
-          {avg !== null && (
-            <p className="text-gray-700 text-sm">
-              Avg: {formatCurrency(avg)} {stddev ? `(± ${formatCurrency(stddev)})` : ''}
+          {value !== undefined && <p className="text-blue-600">Value: {formatCurrency(value)}</p>}
+          {range && (
+            <p className="text-gray-500 text-sm">
+              Confidence Range: {formatCurrency(range[0])} - {formatCurrency(range[1])}
             </p>
           )}
           {data.isPurchaseYear && (
-            <p className="text-green-600 text-sm font-medium">📅 Purchase Year</p>
+            <p className="text-green-600 text-sm font-medium" style={{ marginTop: 4 }}>
+              📅 Purchase Year
+            </p>
           )}
         </div>
       );
     }
     return null;
   };
+
+  const hasStdDev = stdDev.some((d) => d !== undefined && d > 0);
 
   return (
     <Card
@@ -81,10 +82,7 @@ const CarValueChart: React.FC<CarValueChartProps> = ({
       style={{ marginBottom: 16 }}
     >
       <ResponsiveContainer width="100%" height={350}>
-        <LineChart
-          data={chartData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-        >
+        <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
           <XAxis
             dataKey="year"
@@ -93,54 +91,36 @@ const CarValueChart: React.FC<CarValueChartProps> = ({
             domain={['dataMin', 'dataMax']}
             tickFormatter={(v) => v.toString()}
           />
-          <YAxis tickFormatter={(value) => formatCurrency(value)} />
+          <YAxis tickFormatter={(value) => formatCurrency(value, 0)} domain={['dataMin', 'auto']} />
           <Tooltip content={<CustomTooltip />} />
-          <Legend verticalAlign="top" height={24} />
+          <Legend verticalAlign="top" height={36} />
 
-          {/* Stddev band (avg ± stddev). Drawn across entire x range when avg is present */}
-          {avg !== null && bandLower !== null && bandUpper !== null && (
-            <ReferenceArea
-              x1={'dataMin'}
-              x2={'dataMax'}
-              y1={bandLower}
-              y2={bandUpper}
-              strokeOpacity={0}
-              fill="#1890ff"
-              fillOpacity={0.12}
-            />
-          )}
-
-          {/* Reference line for purchase year */}
           <ReferenceLine
             x={purchaseYear}
             stroke="#52c41a"
             strokeWidth={2}
             strokeDasharray="5 5"
-            label={{ value: 'Purchase', position: 'topLeft' }}
+            label={{ value: 'Purchase', position: 'topLeft', fill: '#52c41a' }}
           />
 
-          {/* Average dashed line (if available) */}
-          {avg !== null && (
-            <Line
-              type="monotone"
-              dataKey="avg"
-              stroke="#096dd9"
-              strokeWidth={2}
-              strokeDasharray="4 4"
-              dot={false}
-              name="Average"
+          {hasStdDev && (
+            <Area
+              dataKey="range"
+              stroke={false}
+              fill="#1890ff"
+              fillOpacity={0.15}
               isAnimationActive={false}
+              name="Price Confidence Range"
             />
           )}
 
-          {/* Actual value line */}
           <Line
             type="monotone"
             dataKey="value"
             stroke="#1890ff"
             strokeWidth={3}
-            dot={(props) => {
-              const { cx, cy, payload } = props as any;
+            dot={(props: any) => {
+              const { cx, cy, payload } = props;
               return (
                 <circle
                   cx={cx}
@@ -156,20 +136,13 @@ const CarValueChart: React.FC<CarValueChartProps> = ({
             name="Estimated value"
             isAnimationActive={false}
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
 
-      <div
-        style={{
-          fontSize: '12px',
-          color: '#666',
-          marginTop: '8px',
-          textAlign: 'center'
-        }}
-      >
-        {avg !== null ? (
+      <div style={{ fontSize: '12px', color: '#666', marginTop: '8px', textAlign: 'center' }}>
+        {hasStdDev ? (
           <>
-            Shaded band shows ±1 standard deviation around the average price.
+            Shaded band shows the estimated price range (±1 standard deviation).
             <br />
             Green dot indicates your purchase year.
           </>

@@ -35,6 +35,8 @@ export interface EstimateResponse {
   loan_total_interest: number;
   total_monthly_cost: number;
   year_values: number[];
+  warning?: string;
+  price_stddev?: number[];
 }
 
 export interface BreakEvenRequest {
