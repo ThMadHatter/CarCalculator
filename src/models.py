@@ -35,9 +35,8 @@ class EstimateResponse(BaseModel):
     loan_total_interest: float
     total_monthly_cost: float
     year_values: List[float]
-    # 👇 New fields
     warning: Optional[str] = None
-    std_devs: Optional[float] = None
+    price_stddev: Optional[List[float]] = None
 
 
 class BreakEvenRequest(BaseModel):
