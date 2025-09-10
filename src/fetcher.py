@@ -7,11 +7,11 @@ Fetcher: stable wrappers around the AutoScout24 scraping logic
 
 from typing import Dict, List, Optional
 import time
-import re
 from bs4 import BeautifulSoup
 import yaml
 import requests
 from .utils import create_retry_session
+import re
 
 DEFAULT_BASE_URL = "https://www.autoscout24.it/"
 
@@ -170,30 +170,46 @@ class Fetcher:
         q.append("sort=standard")
         return url + "?" + "&".join(q)
 
+    
+
     @staticmethod
     def _extract_price_from_node(node_text: str) -> Optional[int]:
         """
-        Given a text snippet like '€ 12.500,-' or '€ 20.900,- € 19.900 Super prezzo', 
-        extract the last integer EUR value.
+        Extract the last integer EUR value from a string that may contain one or more
+        euro amounts, e.g.:
+            '€ 55.900 Ottimo prezzo'       -> 55900
+            '€ 57.900,- € 49.900 1 ND'     -> 49900  (take the last euro amount only)
+            '€ 49.900 1'                   -> 49900  (ignore trailing '1')
+        Handles thousand separators ('.' or space/NBSP) and optional ',-' or decimal parts.
         """
-        if not node_text or "€" not in node_text:
+        if not node_text:
             return None
-        
-        # Split by currency symbol. If multiple prices are present (e.g., strikethrough old price),
-        # the last one is typically the current, relevant price.
-        # Example: '€ 20.900,- € 19.900 Super prezzo' -> becomes ' 19.900 Super prezzo'
-        price_str_to_parse = node_text.split('€')[-1]
 
-        # Extract only digits from the relevant part of the string.
-        # This handles thousand separators ('.') and other text/symbols (',-').
-        digits = "".join(ch for ch in price_str_to_parse if ch.isdigit())
-        
-        if not digits:
+        # Normalize non-breaking spaces to regular spaces (common on scraped sites)
+        s = node_text.replace("\xa0", " ")
+
+        # Regex notes:
+        # - '€\\s*'                : Euro symbol followed by optional whitespace
+        # - '((?:\\d{1,3}(?:[.\\s]\\d{3})+|\\d+))' : capture the integer-euro part
+        #        Either:           1..3 digits + one or more (separator + 3 digits) groups (e.g. 53.900, 1 234 567)
+        #        Or:               a plain integer (e.g. 49900)
+        # - '(?:,\\d{1,2})?'       : optional decimal part with comma (ignored, not captured)
+        pattern = re.compile(r"€\s*((?:\d{1,3}(?:[.\s]\d{3})+|\d+))(?:,\d{1,2})?")
+
+        matches = [m.group(1) for m in pattern.finditer(s)]
+        if not matches:
             return None
+
+        # Take the last euro amount found (typical format shows current price last)
+        last = matches[-1]
+
+        # Normalize thousand separators (dot/space) and cast to int
+        last = last.replace(" ", "").replace(".", "")
         try:
-            return int(digits)
+            return int(last)
         except ValueError:
             return None
+
 
     def fetch_car_costs(self, selected_values: Dict[str, object]) -> (int, float):
         """
