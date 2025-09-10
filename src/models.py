@@ -37,6 +37,7 @@ class EstimateResponse(BaseModel):
     year_values: List[float]
     warning: Optional[str] = None
     price_stddev: Optional[List[float]] = None
+    adjusted_number_of_years: Optional[int] = None
 
 
 class BreakEvenRequest(BaseModel):

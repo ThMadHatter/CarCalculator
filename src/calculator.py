@@ -53,13 +53,7 @@ class CarValueCalculator:
         self.year_values = [float(x) for x in year_values]
         self.number_of_years = int(number_of_years)
         self.monthly_maintenance = float(monthly_maintenance)
-        self.purchase_year_index = int(purchase_year_index)  # 1-based in your GUI previously, but here we accept 0-based
-        # ensure indices within range
-        if self.purchase_year_index < 0:
-            raise ValueError("purchase_year_index must be >= 0")
-        if self.purchase_year_index + self.number_of_years >= len(self.year_values):
-            # if not enough years provided, clamp
-            raise ValueError("not enough historical values to compute requested depreciation window")
+        self.purchase_year_index = int(purchase_year_index)
 
     def monthly_depreciation(self) -> float:
         """Return monthly depreciation over the planned ownership horizon."""
@@ -67,6 +61,10 @@ class CarValueCalculator:
         end_index = self.purchase_year_index + self.number_of_years
         end_value = self.year_values[end_index]
         total_depr = start_value - end_value
+        
+        if self.number_of_years <= 0:
+            return 0.0
+
         return total_depr / (self.number_of_years * 12.0)
 
     def monthly_total_cost(self, loan_monthly: float = 0.0) -> float:

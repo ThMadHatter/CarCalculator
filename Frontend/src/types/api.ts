@@ -37,6 +37,7 @@ export interface EstimateResponse {
   year_values: number[];
   warning?: string;
   price_stddev?: number[];
+  adjusted_number_of_years?: number;
 }
 
 export interface BreakEvenRequest {

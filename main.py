@@ -64,16 +64,13 @@ def estimate_monthly_costs(req: EstimateRequest):
     # Build series of year values by querying different registration years
     try:
         years_to_query = req.number_of_years + req.purchase_year_index + 1
-        # produce a list of prices newest->older
         year_values = []
         missing_years = []
         std_devs = []
-        # choose registration_year as optional anchor; if omitted use current year downward
-        anchor = req.registration_year
         import datetime
-        current_year = anchor or datetime.datetime.now().year
-        # build list newest -> older
-        for offset in range(0, years_to_query):
+        current_year = req.registration_year or datetime.datetime.now().year
+        
+        for offset in range(years_to_query):
             selected = {
                 "make": req.brand,
                 "model": req.model,
@@ -83,33 +80,41 @@ def estimate_monthly_costs(req: EstimateRequest):
                 "shift_type": req.shift_types or []
             }
             price, std_dev = fetcher.fetch_car_costs(selected)
-            # Track missing prices
-            if price != 0:
+            if price > 0:
                 year_values.append(float(price))
+                std_devs.append(float(std_dev))
             else:
                 missing_years.append(current_year - offset)
-            std_devs.append(float(std_dev))
-            # # small guard: if 0 returned, backfill last known non-zero
-            # if price == 0 and len(year_values) > 1:
-            #     year_values[-1] = year_values[-2]            
+        
+        warning = None
+        adjusted_years = None
 
-        # compute loan
+        required_values = req.purchase_year_index + req.number_of_years + 1
+        if len(year_values) < required_values:
+            max_years = len(year_values) - req.purchase_year_index - 1
+            if max_years < 1:
+                raise HTTPException(status_code=400, detail="Not enough historical data to perform an estimate.")
+            
+            warning = (
+                f"Warning: Insufficient data for the requested {req.number_of_years}-year projection. "
+                f"Automatically adjusted to the maximum possible: {max_years} years."
+            )
+            adjusted_years = max_years
+            req.number_of_years = max_years
+            # Trim the lists to what's needed for the adjusted calculation
+            year_values = year_values[:req.purchase_year_index + max_years + 1]
+            std_devs = std_devs[:req.purchase_year_index + max_years + 1]
+
+
         loan_calc = LoanCalculator(req.loan_value, req.bank_rate_percent, req.loan_years)
         loan_monthly, loan_total_interest = loan_calc.calculate_loan_costs()
 
-        # create CarValueCalculator (purchase_year_index provided here is 0-based)
         calc = CarValueCalculator(year_values, req.number_of_years, req.monthly_maintenance, req.purchase_year_index)
         monthly_depr = calc.monthly_depreciation()
         monthly_tot = calc.monthly_total_cost(loan_monthly)
 
         purchase_price = year_values[req.purchase_year_index]
         final_value = year_values[req.purchase_year_index + req.number_of_years]
-
-        # Generate warning if any missing years
-        warning = None
-        if missing_years:
-            missing_str = ", ".join(map(str, sorted(missing_years, reverse=True)))
-            warning = f"Prices not available for registration years: {missing_str}. Estimates may be inaccurate."
 
         return EstimateResponse(
             purchase_price=purchase_price,
@@ -120,8 +125,9 @@ def estimate_monthly_costs(req: EstimateRequest):
             loan_total_interest=loan_total_interest,
             total_monthly_cost=monthly_tot,
             year_values=year_values,
-            warning=warning,           # 👈 new
-            price_stddev=std_devs  # 👈 new
+            warning=warning,
+            price_stddev=std_devs,
+            adjusted_number_of_years=adjusted_years
         )
     except FetchError as ex:
         logger.exception("Fetch error during estimate")

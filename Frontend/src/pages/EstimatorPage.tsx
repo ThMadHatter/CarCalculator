@@ -40,7 +40,6 @@ const EstimatorPage: React.FC = () => {
 
   const handleSubmit = async () => {
     try {
-      // Clear previous UI state (errors/results) before new request
       setErrorBanner(null);
       setResults(null);
 
@@ -58,28 +57,28 @@ const EstimatorPage: React.FC = () => {
         bank_rate_percent: values.bank_rate_percent,
         loan_years: values.loan_years,
         shift_types: values.shift_types,
-        // Include manual price if in manual mode
-        ...(manualPriceMode && values.manual_purchase_price && {
-          manual_purchase_price: values.manual_purchase_price
-        })
       };
 
       const response = await estimateMutation.mutateAsync(payload);
       setResults(response);
 
-      // Clear any banner on success
-      setErrorBanner(null);
+      if (response.warning) {
+        notification.warning({
+          message: 'Warning',
+          description: response.warning,
+          duration: 10,
+        });
+      }
+      
+      if (response.adjusted_number_of_years) {
+        form.setFieldsValue({ number_of_years: response.adjusted_number_of_years });
+      }
 
-      // Scroll to results
       document.getElementById('results-section')?.scrollIntoView({ 
         behavior: 'smooth' 
       });
       
     } catch (error: any) {
-      // Defensive: ensure we have normalized response object structure
-      const resp = error?.response || error?.response?.data || {};
-
-      // Handle validation errors (422)
       if (error?.response?.status === 422) {
         const validationErrors = error.response.data?.details || {};
         const formErrors = Object.entries(validationErrors).map(([field, messages]: [string, any]) => ({
@@ -93,7 +92,6 @@ const EstimatorPage: React.FC = () => {
           description: 'Please check the highlighted fields and try again.',
         });
 
-      // Service unavailable (503) -> enable manual price entry
       } else if (error?.response?.status === 503) {
         setManualPriceMode(true);
         notification.warning({
@@ -101,40 +99,7 @@ const EstimatorPage: React.FC = () => {
           description: 'Price data is currently unavailable. You can enter a manual purchase price below.',
         });
 
-      // Specific backend ValueError surfaced as 500 (insufficient historical values)
-      } else if (error?.response?.status === 500) {
-        // safe check: backend raises `ValueError("not enough historical values to compute requested depreciation window")`
-        const detail = (error.response.data?.detail || error.response.data || error.message || '').toString();
-        const normalized = detail.toLowerCase();
-
-        if (normalized.includes('not enough historical values')) {
-          // Set prominent banner with guidance
-          setErrorBanner({
-            type: 'error',
-            message: 'Insufficient historical data for selected window',
-            description:
-              'The server reports there are not enough historical price values to compute the requested depreciation window. Try reducing the "Number of years" or moving the registration / purchase year closer to the present.'
-          });
-
-          // Keep manual price mode off by default — we surface the banner instead of automatically switching modes
-          setManualPriceMode(false);
-
-          // Also show a smaller notification for immediate visibility
-          notification.error({
-            message: 'Insufficient historical data',
-            description: 'Adjust "Number of years" or registration/purchase year and try again.',
-            duration: 6
-          });
-        } else {
-          // Generic 500 handling (other unexpected server errors)
-          notification.error({
-            message: 'Server Error',
-            description: detail || 'An unexpected error occurred while computing the estimate.',
-          });
-        }
-
       } else {
-        // Fallback generic network / unexpected error
         notification.error({
           message: 'Request Failed',
           description: error?.message || 'An unexpected error occurred.',
@@ -163,7 +128,6 @@ const EstimatorPage: React.FC = () => {
   return (
     <div style={{ padding: '24px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Error banner shown at top so it’s immediately visible */}
         {errorBanner && (
           <div style={{ marginBottom: 16 }}>
             <Alert
@@ -187,7 +151,6 @@ const EstimatorPage: React.FC = () => {
           style={{ marginBottom: 24 }}
         >
           <Row gutter={[24, 24]}>
-            {/* Left Column - Form */}
             <Col xs={24} lg={16}>
               <Form
                 form={form}
@@ -200,7 +163,6 @@ const EstimatorPage: React.FC = () => {
 
                 <LoanSection disabled={estimateMutation.isPending} />
 
-                {/* Manual price fallback */}
                 {manualPriceMode && (
                   <Card title="Manual Price Entry" size="small" style={{ marginBottom: 16 }}>
                     <Alert
@@ -258,7 +220,6 @@ const EstimatorPage: React.FC = () => {
               </Form>
             </Col>
 
-            {/* Right Column - Saved Studies */}
             <Col xs={24} lg={8}>
               <SavedStudies 
                 currentData={isFormValid ? currentFormData : undefined}
@@ -268,7 +229,6 @@ const EstimatorPage: React.FC = () => {
           </Row>
         </Card>
 
-        {/* Results Section */}
         {results && (
           <div id="results-section">
             <ResultsCard results={results} />
@@ -282,7 +242,6 @@ const EstimatorPage: React.FC = () => {
           </div>
         )}
 
-        {/* Loading overlay for results area */}
         {estimateMutation.isPending && results && (
           <Card style={{ textAlign: 'center', marginTop: 16 }}>
             <Spin size="large" />
@@ -292,7 +251,6 @@ const EstimatorPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Break-even Modal */}
         <BreakEvenModal
           visible={breakEvenModalVisible}
           onCancel={() => setBreakEvenModalVisible(false)}
