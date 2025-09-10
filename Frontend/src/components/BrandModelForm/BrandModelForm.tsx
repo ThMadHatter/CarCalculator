@@ -217,8 +217,8 @@ const BrandModelForm: React.FC<BrandModelFormProps> = ({ form, disabled = false 
             name="purchase_year_index"
             label={
               <span>
-                Purchase Year{' '}
-                <Tooltip title="Which year of the ownership period you're purchasing (1 = first year, 2 = second year, etc.)">
+                Vehicle Age{' '}
+                <Tooltip title="Age of the vehicle at the time of purchase (0 = brand new, 1 = 1 year old, etc.)">
                   <InfoCircleOutlined />
                 </Tooltip>
               </span>
@@ -230,13 +230,15 @@ const BrandModelForm: React.FC<BrandModelFormProps> = ({ form, disabled = false 
             ]}
           >
             <Select
-              placeholder="Year index"
+              placeholder="Select purchase timing"
               disabled={disabled}
               aria-label="Purchase year index"
             >
-              {Array.from({ length: 20 }, (_, i) => i + 1).map(year => (
-                <Option key={year} value={year}>
-                  Year {year}
+              {Array.from({ length: 20 }, (_, i) => (
+                <Option key={i} value={i}>
+                  {i === 0
+                    ? 'Brand new'
+                    : `${i} year${i > 1 ? 's' : ''} old`}
                 </Option>
               ))}
             </Select>
