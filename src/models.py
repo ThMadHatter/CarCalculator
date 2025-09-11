@@ -51,3 +51,27 @@ class BreakEvenResponse(BaseModel):
     buy_monthly_series: List[float]
     rent_monthly_series: List[float]
     message: Optional[str]
+
+# New models for break even analysis
+class BreakEvenAnalysisRequest(BaseModel):
+    brand: str
+    model: str
+    details: Optional[str] = ""
+    zip_code: Optional[str] = "10139-torino"
+    monthly_maintenance: float = 100.0
+    rent_monthly_cost: float = 500.0
+    max_years: int = 10
+    shift_types: Optional[List[str]] = []
+
+class DataPoint(BaseModel):
+    years_owned: int
+    overall_cost: float
+    monthly_cost: float
+
+class PurchaseYearSeries(BaseModel):
+    purchase_year: int
+    data_points: List[DataPoint]
+
+class BreakEvenAnalysisResponse(BaseModel):
+    rental_series: List[DataPoint]
+    purchase_series: List[PurchaseYearSeries]

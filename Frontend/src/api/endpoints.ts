@@ -6,7 +6,9 @@ import {
   EstimateRequest, 
   EstimateResponse,
   BreakEvenRequest,
-  BreakEvenResponse
+  BreakEvenResponse,
+  BreakEvenAnalysisRequest,
+  BreakEvenAnalysisResponse
 } from '../types/api';
 
 // Retry configuration
@@ -64,5 +66,10 @@ export const estimate = async (payload: EstimateRequest): Promise<EstimateRespon
 
 export const breakEven = async (payload: BreakEvenRequest): Promise<BreakEvenResponse> => {
   const response: AxiosResponse<BreakEvenResponse> = await apiClient.post('/api/break_even', payload);
+  return response.data;
+};
+
+export const breakEvenAnalysis = async (payload: BreakEvenAnalysisRequest): Promise<BreakEvenAnalysisResponse> => {
+  const response: AxiosResponse<BreakEvenAnalysisResponse> = await apiClient.post('/api/break_even_analysis', payload);
   return response.data;
 };

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Modal, Form, InputNumber, Button, Alert, Spin, Space } from 'antd';
 import { CalculatorOutlined } from '@ant-design/icons';
-import { useBreakEven } from '../../hooks/useBreakEven';
-import { EstimateRequest, BreakEvenResponse } from '../../types/api';
+import { useBreakEvenAnalysis } from '../../hooks/useBreakEvenAnalysis';
+import { EstimateRequest, BreakEvenAnalysisResponse } from '../../types/api';
 import BreakEvenChart from '../Charts/BreakEvenChart';
 
 interface BreakEvenModalProps {
@@ -17,16 +17,21 @@ const BreakEvenModal: React.FC<BreakEvenModalProps> = ({
   estimateData 
 }) => {
   const [form] = Form.useForm();
-  const [results, setResults] = useState<BreakEvenResponse | null>(null);
-  const breakEvenMutation = useBreakEven();
+  const [results, setResults] = useState<BreakEvenAnalysisResponse | null>(null);
+  const breakEvenMutation = useBreakEvenAnalysis();
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
       const payload = {
-        estimate: estimateData,
+        brand: estimateData.brand,
+        model: estimateData.model,
+        details: estimateData.details,
+        zip_code: estimateData.zip_code,
+        monthly_maintenance: estimateData.monthly_maintenance,
         rent_monthly_cost: values.rent_monthly_cost,
-        years: values.years,
+        max_years: values.years,
+        shift_types: estimateData.shift_types
       };
       
       const response = await breakEvenMutation.mutateAsync(payload);
@@ -139,19 +144,8 @@ const BreakEvenModal: React.FC<BreakEvenModalProps> = ({
 
         {results && (
           <div style={{ marginTop: 24 }}>
-            {results.message && (
-              <Alert
-                message={results.message}
-                type="warning"
-                style={{ marginBottom: 16 }}
-              />
-            )}
-            
             <BreakEvenChart
-              buyMonthlySeries={results.buy_monthly_series}
-              rentMonthlySeries={results.rent_monthly_series}
-              monthsToBreakEven={results.months_to_break_even}
-              years={form.getFieldValue('years')}
+              data={results}
             />
           </div>
         )}

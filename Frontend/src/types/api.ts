@@ -64,3 +64,31 @@ export interface SavedStudy {
   data: EstimateRequest;
   createdAt: string;
 }
+
+// New types for break even analysis
+export interface BreakEvenAnalysisRequest {
+  brand: string;
+  model: string;
+  details?: string;
+  zip_code?: string;
+  monthly_maintenance: number;
+  rent_monthly_cost: number;
+  max_years: number;
+  shift_types?: string[];
+}
+
+export interface DataPoint {
+  years_owned: number;
+  overall_cost: number;
+  monthly_cost: number;
+}
+
+export interface PurchaseYearSeries {
+  purchase_year: number;
+  data_points: DataPoint[];
+}
+
+export interface BreakEvenAnalysisResponse {
+  rental_series: DataPoint[];
+  purchase_series: PurchaseYearSeries[];
+}

@@ -11,9 +11,14 @@ from src.models import (
     EstimateResponse,
     BreakEvenRequest,
     BreakEvenResponse,
+    BreakEvenAnalysisRequest,
+    BreakEvenAnalysisResponse,
+    PurchaseYearSeries,
+    DataPoint
 )
 from src.calculator import CarValueCalculator, LoanCalculator
 import logging
+import datetime
 
 app = FastAPI(title="Car Cost Estimator API", version="1.0")
 
@@ -67,7 +72,7 @@ def estimate_monthly_costs(req: EstimateRequest):
         year_values = []
         missing_years = []
         std_devs = []
-        import datetime
+        
         current_year = req.registration_year or datetime.datetime.now().year
         
         for offset in range(years_to_query):
@@ -188,6 +193,70 @@ def break_even(study: BreakEvenRequest):
         raise
     except Exception as ex:
         logger.exception("break_even unexpected")
+        raise HTTPException(status_code=500, detail=str(ex))
+
+@app.post("/api/break_even_analysis", response_model=BreakEvenAnalysisResponse)
+def break_even_analysis(req: BreakEvenAnalysisRequest):
+    try:
+        current_year = datetime.datetime.now().year
+        year_values = []
+        for offset in range(req.max_years + 1):
+            selected = {
+                "make": req.brand,
+                "model": req.model,
+                "details": req.details or "",
+                "zip": req.zip_code,
+                "firstRegistration": current_year - offset,
+                "shift_type": req.shift_types or []
+            }
+            price, _ = fetcher.fetch_car_costs(selected)
+            year_values.append(float(price) if price > 0 else 0.0)
+
+        purchase_series = []
+        for purchase_offset in range(len(year_values)):
+            purchase_price = year_values[purchase_offset]
+            if purchase_price == 0:
+                continue
+
+            data_points = []
+            for sell_offset in range(purchase_offset + 1, len(year_values)):
+                sell_price = year_values[sell_offset]
+                if sell_price == 0:
+                    continue
+
+                years_owned = sell_offset - purchase_offset
+                maintenance_cost = req.monthly_maintenance * 12 * years_owned
+                overall_cost = purchase_price - sell_price + maintenance_cost
+                monthly_cost = overall_cost / (years_owned * 12)
+
+                data_points.append(DataPoint(
+                    years_owned=years_owned,
+                    overall_cost=overall_cost,
+                    monthly_cost=monthly_cost
+                ))
+            
+            purchase_series.append(PurchaseYearSeries(
+                purchase_year=current_year - purchase_offset,
+                data_points=data_points
+            ))
+
+        rental_series = []
+        for y in range(1, req.max_years + 1):
+            rental_series.append(DataPoint(
+                years_owned=y,
+                overall_cost=req.rent_monthly_cost * 12 * y,
+                monthly_cost=req.rent_monthly_cost
+            ))
+            
+        return BreakEvenAnalysisResponse(
+            rental_series=rental_series,
+            purchase_series=purchase_series
+        )
+    except FetchError as ex:
+        logger.exception("Fetch error during break-even analysis")
+        raise HTTPException(status_code=503, detail=str(ex))
+    except Exception as ex:
+        logger.exception("Unexpected error during break-even analysis")
         raise HTTPException(status_code=500, detail=str(ex))
 
 if __name__ == "__main__":

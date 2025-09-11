@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   LineChart, 
   Line, 
@@ -7,136 +7,113 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  ReferenceLine,
-  Legend
+  Legend,
+  Label
 } from 'recharts';
+import { Switch, Space, Card, Empty } from 'antd';
+import { LineChartOutlined } from '@ant-design/icons';
 import { formatCurrency } from '../../utils/numbers';
+import { BreakEvenAnalysisResponse } from '../../types/api';
 
 interface BreakEvenChartProps {
-  buyMonthlySeries: number[];
-  rentMonthlySeries: number[];
-  monthsToBreakEven: number | null;
-  years: number;
+  data: BreakEvenAnalysisResponse;
 }
 
-const BreakEvenChart: React.FC<BreakEvenChartProps> = ({ 
-  buyMonthlySeries, 
-  rentMonthlySeries, 
-  monthsToBreakEven,
-  years 
-}) => {
-  // Calculate cumulative costs
-  const chartData = buyMonthlySeries.map((buyCost, index) => {
-  const month = index + 1;
-  const rentCost = rentMonthlySeries[index] || 0;
+type CostType = 'overall_cost' | 'monthly_cost';
 
-  const cumulativeBuyCost = buyMonthlySeries.slice(0, index + 1).reduce((sum, cost) => sum + cost, 0);
-  const cumulativeRentCost = rentMonthlySeries.slice(0, index + 1).reduce((sum, cost) => sum + cost, 0);
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
-  return {
-    month,
-    buyCumulative: cumulativeBuyCost,
-    rentCumulative: cumulativeRentCost,
-    buyMonthly: buyCost,
-    rentMonthly: rentCost,
-  };
-});
-
+const BreakEvenChart: React.FC<BreakEvenChartProps> = ({ data }) => {
+  const [costType, setCostType] = useState<CostType>('overall_cost');
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      const monthLabel = `Month ${label}`;
-      const yearLabel = `Year ${Math.ceil(label / 12)}`;
-      
       return (
         <div className="bg-white p-3 border rounded shadow-lg">
-          <p className="font-medium">{monthLabel} ({yearLabel})</p>
+          <p className="font-medium">Years Owned: {label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} style={{ color: entry.color }}>
               {entry.name}: {formatCurrency(entry.value)}
             </p>
           ))}
-          {monthsToBreakEven === label && (
-            <p className="text-green-600 text-sm font-medium">
-              🎯 Break-Even Point
-            </p>
-          )}
         </div>
       );
     }
     return null;
   };
 
+  const hasData = data && data.purchase_series.some(s => s.data_points.length > 0);
+
   return (
-    <div style={{ height: 400, width: '100%' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={chartData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-          <XAxis 
-            dataKey="month"
-            tickFormatter={(value) => `M${value}`}
+    <Card
+      title={
+        <Space>
+          <LineChartOutlined />
+          Break-Even Analysis
+        </Space>
+      }
+      extra={
+        <Space>
+          <span>Monthly Cost</span>
+          <Switch
+            checked={costType === 'overall_cost'}
+            onChange={(checked) => setCostType(checked ? 'overall_cost' : 'monthly_cost')}
           />
-          <YAxis 
-            tickFormatter={(value) => formatCurrency(value).replace('€', '€')}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          
-          {/* Reference line for break-even point */}
-          {monthsToBreakEven && (
-            <ReferenceLine 
-              x={monthsToBreakEven} 
-              stroke="#52c41a" 
-              strokeWidth={2}
-              strokeDasharray="5 5"
-              label={{ 
-                value: `Break-Even (Month ${monthsToBreakEven})`, 
-                position: "topLeft" 
-              }}
+          <span>Overall Cost</span>
+        </Space>
+      }
+    >
+      {hasData ? (
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            <XAxis 
+              dataKey="years_owned"
+              type="number"
+              allowDuplicatedCategory={false}
+            >
+              <Label value="Years of Ownership" offset={-20} position="insideBottom" />
+            </XAxis>
+            <YAxis 
+              tickFormatter={(value) => formatCurrency(value, 0)}
+            >
+              <Label value={costType === 'overall_cost' ? 'Overall Cost' : 'Monthly Cost'} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} />
+            </YAxis>
+            <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ bottom: 0 }}/>
+
+            <Line
+              type="monotone"
+              data={data.rental_series}
+              dataKey={costType}
+              stroke="#ff4d4f"
+              strokeWidth={3}
+              name="Rental Cost"
+              dot={false}
+              activeDot={{ r: 6 }}
             />
-          )}
-          
-          <Line
-            type="monotone"
-            dataKey="buyCumulative"
-            stroke="#1890ff"
-            strokeWidth={3}
-            name="Cumulative Buying Cost"
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-          
-          <Line
-            type="monotone"
-            dataKey="rentCumulative"
-            stroke="#ff4d4f"
-            strokeWidth={3}
-            name="Cumulative Renting Cost"
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-      
-      <div style={{ 
-        fontSize: '12px', 
-        color: '#666', 
-        marginTop: '8px',
-        textAlign: 'center' 
-      }}>
-        {monthsToBreakEven ? (
-          <>
-            Break-even occurs at month {monthsToBreakEven} (Year {Math.ceil(monthsToBreakEven / 12)}).
-            After this point, buying becomes more cost-effective than renting.
-          </>
-        ) : (
-          'Renting remains more cost-effective throughout the entire period.'
-        )}
-      </div>
-    </div>
+
+            {data.purchase_series.map((series, index) => (
+              <Line
+                key={series.purchase_year}
+                type="monotone"
+                data={series.data_points}
+                dataKey={costType}
+                stroke={COLORS[index % COLORS.length]}
+                strokeWidth={2}
+                name={`Buy in ${series.purchase_year}`}
+                dot={false}
+                activeDot={{ r: 6 }}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Empty description="No historical data available to perform the analysis." />
+        </div>
+      )}
+    </Card>
   );
 };
 
