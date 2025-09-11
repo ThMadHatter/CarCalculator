@@ -235,8 +235,15 @@ def break_even_analysis(req: BreakEvenAnalysisRequest):
                     monthly_cost=monthly_cost
                 ))
             
+            if purchase_offset == 0:
+                description = "Buy brand new"
+            elif purchase_offset == 1:
+                description = "Buy 1 year old"
+            else:
+                description = f"Buy {purchase_offset} years old"
+
             purchase_series.append(PurchaseYearSeries(
-                purchase_year=current_year - purchase_offset,
+                purchase_description=description,
                 data_points=data_points
             ))
 

@@ -84,7 +84,7 @@ export interface DataPoint {
 }
 
 export interface PurchaseYearSeries {
-  purchase_year: number;
+  purchase_description: string;
   data_points: DataPoint[];
 }
 

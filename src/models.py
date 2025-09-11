@@ -69,7 +69,7 @@ class DataPoint(BaseModel):
     monthly_cost: float
 
 class PurchaseYearSeries(BaseModel):
-    purchase_year: int
+    purchase_description: str
     data_points: List[DataPoint]
 
 class BreakEvenAnalysisResponse(BaseModel):

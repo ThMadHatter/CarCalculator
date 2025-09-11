@@ -95,13 +95,13 @@ const BreakEvenChart: React.FC<BreakEvenChartProps> = ({ data }) => {
 
             {data.purchase_series.map((series, index) => (
               <Line
-                key={series.purchase_year}
+                key={series.purchase_description}
                 type="monotone"
                 data={series.data_points}
                 dataKey={costType}
                 stroke={COLORS[index % COLORS.length]}
                 strokeWidth={2}
-                name={`Buy in ${series.purchase_year}`}
+                name={series.purchase_description}
                 dot={false}
                 activeDot={{ r: 6 }}
               />
