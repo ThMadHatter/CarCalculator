@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Form, AutoComplete, Select, Input, Checkbox, Row, Col, Tooltip } from 'antd';
+import { Form, AutoComplete, Select, Input, Checkbox, Row, Col, Tooltip, InputNumber, Switch } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useBrands } from '../../hooks/useBrands';
 import { useModels } from '../../hooks/useModels';
@@ -277,6 +277,49 @@ const BrandModelForm: React.FC<BrandModelFormProps> = ({ form, disabled = false 
               options={shiftTypeOptions}
               disabled={disabled}
             />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} sm={12}>
+          <Form.Item
+            name="inflation_rate"
+            label={
+              <span>
+                Annual Inflation (%) {' '}
+                <Tooltip title="Annual inflation rate to apply to maintenance costs">
+                  <InfoCircleOutlined />
+                </Tooltip>
+              </span>
+            }
+            initialValue={2.0}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              max={20}
+              step={0.1}
+              formatter={value => `${value}%`}
+              parser={value => value!.replace('%', '') as any}
+              disabled={disabled}
+            />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} sm={12}>
+          <Form.Item
+            name="extend_missing_values"
+            label={
+              <span>
+                Extend Missing Prices {' '}
+                <Tooltip title="Automatically fill in missing historical price data using interpolation/extrapolation">
+                  <InfoCircleOutlined />
+                </Tooltip>
+              </span>
+            }
+            valuePropName="checked"
+            initialValue={true}
+          >
+            <Switch disabled={disabled} />
           </Form.Item>
         </Col>
       </Row>

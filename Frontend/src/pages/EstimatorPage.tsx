@@ -53,6 +53,8 @@ const EstimatorPage: React.FC = () => {
         number_of_years: values.number_of_years,
         purchase_year_index: values.purchase_year_index,
         monthly_maintenance: values.monthly_maintenance,
+        inflation_rate: values.inflation_rate,
+        extend_missing_values: values.extend_missing_values,
         loan_value: values.loan_value,
         bank_rate_percent: values.bank_rate_percent,
         loan_years: values.loan_years,
@@ -109,9 +111,7 @@ const EstimatorPage: React.FC = () => {
   };
 
   const handleCompareToRenting = () => {
-    if (results) {
-      setBreakEvenModalVisible(true);
-    }
+    setBreakEvenModalVisible(true);
   };
 
   const handleLoadStudy = useCallback((data: EstimateRequest) => {
@@ -205,17 +205,15 @@ const EstimatorPage: React.FC = () => {
                     Simulate Car Costs
                   </Button>
                   
-                  {results && (
-                    <Button
-                      type="default"
-                      size="large"
-                      icon={<ArrowsAltOutlined />}
-                      onClick={handleCompareToRenting}
-                      disabled={estimateMutation.isPending}
-                    >
-                      Compare to Renting
-                    </Button>
-                  )}
+                  <Button
+                    type="default"
+                    size="large"
+                    icon={<ArrowsAltOutlined />}
+                    onClick={handleCompareToRenting}
+                    disabled={estimateMutation.isPending || !isFormValid}
+                  >
+                    Compare to Renting
+                  </Button>
                 </Space>
               </Form>
             </Col>

@@ -10,7 +10,7 @@ def fake_fetch_car_costs(selected_values):
     year = int(selected_values.get("firstRegistration") or 2025)
     # price decays with age:
     age = 2025 - year
-    return max(1000, 30000 - age * 2000)
+    return max(1000, 30000 - age * 2000), 0.0
 
 
 @patch("src.fetcher.Fetcher.fetch_car_costs", side_effect=fake_fetch_car_costs)
