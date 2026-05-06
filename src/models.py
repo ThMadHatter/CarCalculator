@@ -20,6 +20,8 @@ class EstimateRequest(BaseModel):
     number_of_years: int = 10
     purchase_year_index: int = 3  # index into returned series: how many years after newest
     monthly_maintenance: float = 100.0
+    inflation_rate: float = 0.0
+    extend_missing_values: bool = False
     loan_value: float = 0.0
     bank_rate_percent: float = 0.0
     loan_years: int = 0
@@ -59,7 +61,12 @@ class BreakEvenAnalysisRequest(BaseModel):
     details: Optional[str] = ""
     zip_code: Optional[str] = "10139-torino"
     monthly_maintenance: float = 100.0
+    inflation_rate: float = 0.0
+    extend_missing_values: bool = False
     rent_monthly_cost: float = 500.0
+    loan_value: float = 0.0
+    bank_rate_percent: float = 0.0
+    loan_years: int = 0
     max_years: int = 10
     shift_types: Optional[List[str]] = []
 

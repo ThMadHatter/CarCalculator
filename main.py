@@ -35,6 +35,67 @@ fetcher = Fetcher()
 logger = logging.getLogger("uvicorn.error")
 
 
+def fill_missing_prices(prices: List[float], extend: bool = False) -> List[float]:
+    """
+    Interpolate and extrapolate missing values (0.0) in the price list.
+    If extend is False, returns prices as is.
+    """
+    if not extend or not prices:
+        return prices
+
+    n = len(prices)
+    filled = list(prices)
+
+    # 1. Find indices of non-zero values
+    valid_indices = [i for i, p in enumerate(prices) if p > 0]
+
+    if not valid_indices:
+        return filled
+
+    # 2. Linear interpolation for internal gaps
+    for i in range(len(valid_indices) - 1):
+        idx1 = valid_indices[i]
+        idx2 = valid_indices[i+1]
+        if idx2 - idx1 > 1:
+            val1 = filled[idx1]
+            val2 = filled[idx2]
+            step = (val2 - val1) / (idx2 - idx1)
+            for j in range(idx1 + 1, idx2):
+                filled[j] = val1 + step * (j - idx1)
+
+    # 3. Extrapolation for start/end gaps
+    # Start (before first valid)
+    first_valid = valid_indices[0]
+    if first_valid > 0:
+        if len(valid_indices) > 1:
+            # use slope between first two valid points
+            idx1, idx2 = valid_indices[0], valid_indices[1]
+            slope = (filled[idx2] - filled[idx1]) / (idx2 - idx1)
+            for j in range(first_valid - 1, -1, -1):
+                filled[j] = filled[j+1] - slope
+        else:
+            # constant
+            for j in range(first_valid - 1, -1, -1):
+                filled[j] = filled[first_valid]
+
+    # End (after last valid)
+    last_valid = valid_indices[-1]
+    if last_valid < n - 1:
+        if len(valid_indices) > 1:
+            # use slope between last two valid points
+            idx1, idx2 = valid_indices[-2], valid_indices[-1]
+            slope = (filled[idx2] - filled[idx1]) / (idx2 - idx1)
+            for j in range(last_valid + 1, n):
+                filled[j] = filled[j-1] + slope
+        else:
+            # constant
+            for j in range(last_valid + 1, n):
+                filled[j] = filled[last_valid]
+
+    # Ensure no negative prices
+    return [max(0.0, p) for p in filled]
+
+
 @app.get("/api/brands", response_model=BrandListResponse)
 def list_brands():
     """Return brand list discovered on the listing home page."""
@@ -111,10 +172,12 @@ def estimate_monthly_costs(req: EstimateRequest):
             std_devs = std_devs[:req.purchase_year_index + max_years + 1]
 
 
+        year_values = fill_missing_prices(year_values, req.extend_missing_values)
+
         loan_calc = LoanCalculator(req.loan_value, req.bank_rate_percent, req.loan_years)
         loan_monthly, loan_total_interest = loan_calc.calculate_loan_costs()
 
-        calc = CarValueCalculator(year_values, req.number_of_years, req.monthly_maintenance, req.purchase_year_index)
+        calc = CarValueCalculator(year_values, req.number_of_years, req.monthly_maintenance, req.purchase_year_index, req.inflation_rate, req.loan_value)
         monthly_depr = calc.monthly_depreciation()
         monthly_tot = calc.monthly_total_cost(loan_monthly)
 
@@ -212,6 +275,8 @@ def break_even_analysis(req: BreakEvenAnalysisRequest):
             price, _ = fetcher.fetch_car_costs(selected)
             year_values.append(float(price) if price > 0 else 0.0)
 
+        year_values = fill_missing_prices(year_values, req.extend_missing_values)
+
         purchase_series = []
         for purchase_offset in range(len(year_values)):
             purchase_price = year_values[purchase_offset]
@@ -225,9 +290,23 @@ def break_even_analysis(req: BreakEvenAnalysisRequest):
                     continue
 
                 years_owned = sell_offset - purchase_offset
-                maintenance_cost = req.monthly_maintenance * 12 * years_owned
-                overall_cost = purchase_price - sell_price + maintenance_cost
-                monthly_cost = overall_cost / (years_owned * 12)
+
+                loan_calc = LoanCalculator(req.loan_value, req.bank_rate_percent, req.loan_years)
+                loan_monthly, _ = loan_calc.calculate_loan_costs()
+
+                # We need a CarValueCalculator to compute total maintenance and depreciation
+                # But we have year_values for all points.
+                calc = CarValueCalculator(
+                    year_values=year_values,
+                    number_of_years=years_owned,
+                    monthly_maintenance=req.monthly_maintenance,
+                    purchase_year_index=purchase_offset,
+                    inflation_rate=req.inflation_rate,
+                    loan_value=req.loan_value
+                )
+
+                monthly_cost = calc.monthly_total_cost(loan_monthly=loan_monthly)
+                overall_cost = monthly_cost * (years_owned * 12)
 
                 data_points.append(DataPoint(
                     years_owned=years_owned,

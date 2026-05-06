@@ -20,6 +20,8 @@ export interface EstimateRequest {
   number_of_years: number;
   purchase_year_index: number;
   monthly_maintenance: number;
+  inflation_rate: number;
+  extend_missing_values: boolean;
   loan_value: number;
   bank_rate_percent: number;
   loan_years: number;
@@ -72,7 +74,12 @@ export interface BreakEvenAnalysisRequest {
   details?: string;
   zip_code?: string;
   monthly_maintenance: number;
+  inflation_rate: number;
+  extend_missing_values: boolean;
   rent_monthly_cost: number;
+  loan_value: number;
+  bank_rate_percent: number;
+  loan_years: number;
   max_years: number;
   shift_types?: string[];
 }

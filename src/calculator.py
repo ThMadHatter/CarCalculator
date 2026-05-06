@@ -47,26 +47,49 @@ class CarValueCalculator:
     The expected input is a list `year_values` where index 0 corresponds to the newest year (CURRENT_YEAR),
     index 1 to previous year, ... i.e. a descending timeline. This matches the behavior of your original GUI.
     """
-    def __init__(self, year_values: List[float], number_of_years: int, monthly_maintenance: float, purchase_year_index: int):
+    def __init__(self, year_values: List[float], number_of_years: int, monthly_maintenance: float, purchase_year_index: int, inflation_rate: float = 0.0, loan_value: float = 0.0):
         if not year_values:
             raise ValueError("year_values must be non-empty")
         self.year_values = [float(x) for x in year_values]
         self.number_of_years = int(number_of_years)
         self.monthly_maintenance = float(monthly_maintenance)
         self.purchase_year_index = int(purchase_year_index)
+        self.inflation_rate = float(inflation_rate)
+        self.loan_value = float(loan_value)
 
-    def monthly_depreciation(self) -> float:
-        """Return monthly depreciation over the planned ownership horizon."""
+    def total_maintenance_cost(self, years: int) -> float:
+        """Calculate cumulative maintenance cost with annual inflation."""
+        total = 0.0
+        annual_maintenance = self.monthly_maintenance * 12
+        for i in range(years):
+            total += annual_maintenance * ((1 + self.inflation_rate / 100.0) ** i)
+        return total
+
+    def monthly_depreciation(self, years: int = None) -> float:
+        """
+        Return monthly depreciation over the planned ownership horizon.
+        If loan_value > 0, it is subtracted from the initial purchase price to avoid double counting
+        capital repayment (as it is included in the loan monthly payment).
+        """
+        years = years or self.number_of_years
         start_value = self.year_values[self.purchase_year_index]
-        end_index = self.purchase_year_index + self.number_of_years
+        end_index = self.purchase_year_index + years
         end_value = self.year_values[end_index]
-        total_depr = start_value - end_value
         
-        if self.number_of_years <= 0:
+        # Adjusted depreciation: (Purchase Price - loan_amount - Estimated Final Value)
+        total_depr = start_value - self.loan_value - end_value
+
+        if years <= 0:
             return 0.0
 
-        return total_depr / (self.number_of_years * 12.0)
+        return total_depr / (years * 12.0)
 
-    def monthly_total_cost(self, loan_monthly: float = 0.0) -> float:
-        """Depreciation + maintenance + loan monthly payment"""
-        return self.monthly_depreciation() + self.monthly_maintenance + loan_monthly
+    def monthly_total_cost(self, loan_monthly: float = 0.0, years: int = None) -> float:
+        """Average monthly cost over years: (Adjusted Depreciation + maintenance) / months + loan monthly payment"""
+        years = years or self.number_of_years
+        if years <= 0:
+            return self.monthly_maintenance + loan_monthly
+
+        total_depr = self.monthly_depreciation(years=years) * (years * 12.0)
+        total_maint = self.total_maintenance_cost(years)
+        return (total_depr + total_maint) / (years * 12.0) + loan_monthly

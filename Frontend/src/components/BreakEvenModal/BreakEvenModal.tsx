@@ -29,7 +29,12 @@ const BreakEvenModal: React.FC<BreakEvenModalProps> = ({
         details: estimateData.details,
         zip_code: estimateData.zip_code,
         monthly_maintenance: estimateData.monthly_maintenance,
+        inflation_rate: estimateData.inflation_rate,
+        extend_missing_values: estimateData.extend_missing_values,
         rent_monthly_cost: values.rent_monthly_cost,
+        loan_value: estimateData.loan_value,
+        bank_rate_percent: estimateData.bank_rate_percent,
+        loan_years: estimateData.loan_years,
         max_years: values.years,
         shift_types: estimateData.shift_types
       };
