@@ -53,7 +53,7 @@ def fake_fetch_car_costs(selected_values):
     year = int(selected_values.get("firstRegistration") or 2025)
     age = 2025 - year
     # ensure positive price
-    return max(1000, 30000 - age * 2000), 500.0
+    return max(1000, 30000 - age * 2000)
 
 
 @patch.object(api_main.fetcher, "fetch_car_costs", side_effect=fake_fetch_car_costs)
@@ -124,7 +124,7 @@ def test_estimate_internal_exception():
 
 def test_break_even_breakeven_found():
     # patch estimate_monthly_costs to return an object with low total_monthly_cost
-    est = api_main.EstimateResponse(is_simulated=[False]*5, monthly_cost_during_loan=350.0, monthly_cost_after_loan=300.0, inflation_impact_total=100.0,
+    est = api_main.EstimateResponse(
         purchase_price=20000.0,
         estimated_final_value=12000.0,
         monthly_depreciation=200.0,
@@ -161,7 +161,7 @@ def test_break_even_breakeven_found():
 
 def test_break_even_no_breakeven():
     # estimate total monthly cost larger than rent -> no break-even
-    est = api_main.EstimateResponse(is_simulated=[False]*5, monthly_cost_during_loan=350.0, monthly_cost_after_loan=300.0, inflation_impact_total=100.0,
+    est = api_main.EstimateResponse(
         purchase_price=20000.0,
         estimated_final_value=12000.0,
         monthly_depreciation=500.0,
@@ -247,7 +247,7 @@ def test_estimate_backfill_zero_price():
     This hits the 'if price == 0 and len(year_values) > 1: year_values[-1] = year_values[-2]' branch.
     """
     # side effect sequence: newest->older prices (3 calls required for number_of_years=2, purchase_year_index=0)
-    seq = [(30000, 500.0), (0, 0.0), (25000, 400.0)]
+    seq = [30000, 0, 25000]
 
     def side_effect(selected):
         return seq.pop(0)

@@ -146,7 +146,7 @@ def test_fetch_car_costs_parses_price_nodes_and_median():
     """
     with patch("src.fetcher._safe_get", return_value=MockResp(html)):
         f = Fetcher()
-        price, _ = f.fetch_car_costs({"make":"bmw","model":"m","firstRegistration":2022})
+        price = f.fetch_car_costs({"make":"bmw","model":"m","firstRegistration":2022})
         # median of [30000,28000,26000] is 28000
         assert price == 28000
 
@@ -156,12 +156,12 @@ def test_fetch_car_costs_fallback_to_text_search_and_zero_when_none():
     html_with_text = "<p>Special price € 9.999 today</p>"
     with patch("src.fetcher._safe_get", return_value=MockResp(html_with_text)):
         f = Fetcher()
-        price, _ = f.fetch_car_costs({"make":"x","model":"y","firstRegistration":2021})
+        price = f.fetch_car_costs({"make":"x","model":"y","firstRegistration":2021})
         assert price == 9999
 
     # second case: no euro strings at all -> returns 0
     html_no_euro = "<div>No price here</div>"
     with patch("src.fetcher._safe_get", return_value=MockResp(html_no_euro)):
         f = Fetcher()
-        price, _ = f.fetch_car_costs({"make":"x","model":"y","firstRegistration":2021})
+        price = f.fetch_car_costs({"make":"x","model":"y","firstRegistration":2021})
         assert price == 0

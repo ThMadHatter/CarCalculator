@@ -35,25 +35,22 @@ fetcher = Fetcher()
 logger = logging.getLogger("uvicorn.error")
 
 
-def fill_missing_prices(prices: List[float], extend: bool = False) -> tuple[List[float], List[bool]]:
+def fill_missing_prices(prices: List[float], extend: bool = False) -> List[float]:
     """
     Interpolate and extrapolate missing values (0.0) in the price list.
-    If extend is False, returns prices as is and all False for simulated.
-    Returns (filled_prices, is_simulated_mask)
+    If extend is False, returns prices as is.
     """
-    n = len(prices)
-    is_simulated = [p <= 0 for p in prices]
-
     if not extend or not prices:
-        return prices, is_simulated
+        return prices
 
+    n = len(prices)
     filled = list(prices)
 
     # 1. Find indices of non-zero values
     valid_indices = [i for i, p in enumerate(prices) if p > 0]
 
     if not valid_indices:
-        return filled, is_simulated
+        return filled
 
     # 2. Linear interpolation for internal gaps
     for i in range(len(valid_indices) - 1):
@@ -96,7 +93,7 @@ def fill_missing_prices(prices: List[float], extend: bool = False) -> tuple[List
                 filled[j] = filled[last_valid]
 
     # Ensure no negative prices
-    return [max(0.0, p) for p in filled], is_simulated
+    return [max(0.0, p) for p in filled]
 
 
 @app.get("/api/brands", response_model=BrandListResponse)
@@ -149,16 +146,33 @@ def estimate_monthly_costs(req: EstimateRequest):
                 "shift_type": req.shift_types or []
             }
             price, std_dev = fetcher.fetch_car_costs(selected)
-            year_values.append(float(price))
-            std_devs.append(float(std_dev))
+            if price > 0:
+                year_values.append(float(price))
+                std_devs.append(float(std_dev))
+            else:
+                missing_years.append(current_year - offset)
         
-        year_values, is_simulated = fill_missing_prices(year_values, req.extend_missing_values)
-
         warning = None
         adjusted_years = None
 
-        if all(sim for sim in is_simulated):
-             raise HTTPException(status_code=400, detail="No historical data found to perform an estimate.")
+        required_values = req.purchase_year_index + req.number_of_years + 1
+        if len(year_values) < required_values:
+            max_years = len(year_values) - req.purchase_year_index - 1
+            if max_years < 1:
+                raise HTTPException(status_code=400, detail="Not enough historical data to perform an estimate.")
+            
+            warning = (
+                f"Warning: Insufficient data for the requested {req.number_of_years}-year projection. "
+                f"Automatically adjusted to the maximum possible: {max_years} years."
+            )
+            adjusted_years = max_years
+            req.number_of_years = max_years
+            # Trim the lists to what's needed for the adjusted calculation
+            year_values = year_values[:req.purchase_year_index + max_years + 1]
+            std_devs = std_devs[:req.purchase_year_index + max_years + 1]
+
+
+        year_values = fill_missing_prices(year_values, req.extend_missing_values)
 
         loan_calc = LoanCalculator(req.loan_value, req.bank_rate_percent, req.loan_years)
         loan_monthly, loan_total_interest = loan_calc.calculate_loan_costs()
@@ -166,8 +180,6 @@ def estimate_monthly_costs(req: EstimateRequest):
         calc = CarValueCalculator(year_values, req.number_of_years, req.monthly_maintenance, req.purchase_year_index, req.inflation_rate, req.loan_value)
         monthly_depr = calc.monthly_depreciation()
         monthly_tot = calc.monthly_total_cost(loan_monthly)
-
-        cost_during, cost_after, inflation_impact_total = calc.calculate_period_costs(loan_monthly, req.loan_years)
 
         purchase_price = year_values[req.purchase_year_index]
         final_value = year_values[req.purchase_year_index + req.number_of_years]
@@ -181,10 +193,6 @@ def estimate_monthly_costs(req: EstimateRequest):
             loan_total_interest=loan_total_interest,
             total_monthly_cost=monthly_tot,
             year_values=year_values,
-            is_simulated=is_simulated,
-            monthly_cost_during_loan=cost_during,
-            monthly_cost_after_loan=cost_after,
-            inflation_impact_total=inflation_impact_total,
             warning=warning,
             price_stddev=std_devs,
             adjusted_number_of_years=adjusted_years
@@ -255,7 +263,7 @@ def break_even_analysis(req: BreakEvenAnalysisRequest):
     try:
         current_year = datetime.datetime.now().year
         year_values = []
-        for offset in range(int(req.max_years) + 1):
+        for offset in range(req.max_years + 1):
             selected = {
                 "make": req.brand,
                 "model": req.model,
@@ -267,7 +275,7 @@ def break_even_analysis(req: BreakEvenAnalysisRequest):
             price, _ = fetcher.fetch_car_costs(selected)
             year_values.append(float(price) if price > 0 else 0.0)
 
-        year_values, _ = fill_missing_prices(year_values, req.extend_missing_values)
+        year_values = fill_missing_prices(year_values, req.extend_missing_values)
 
         purchase_series = []
         for purchase_offset in range(len(year_values)):
@@ -299,13 +307,11 @@ def break_even_analysis(req: BreakEvenAnalysisRequest):
 
                 monthly_cost = calc.monthly_total_cost(loan_monthly=loan_monthly)
                 overall_cost = monthly_cost * (years_owned * 12)
-                _, _, inflation_impact = calc.calculate_period_costs(loan_monthly, req.loan_years)
 
                 data_points.append(DataPoint(
                     years_owned=years_owned,
                     overall_cost=overall_cost,
-                    monthly_cost=monthly_cost,
-                    inflation_impact=inflation_impact
+                    monthly_cost=monthly_cost
                 ))
             
             if purchase_offset == 0:

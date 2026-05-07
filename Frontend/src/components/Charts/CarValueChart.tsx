@@ -18,7 +18,6 @@ import { formatCurrency } from '../../utils/numbers';
 interface CarValueChartProps {
   yearValues: number[];
   stdDev?: (number | undefined)[];
-  isSimulated?: boolean[];
   registrationYear: number;
   purchaseYearIndex: number;
 }
@@ -26,7 +25,6 @@ interface CarValueChartProps {
 const CarValueChart: React.FC<CarValueChartProps> = ({
   yearValues,
   stdDev = [],
-  isSimulated = [],
   registrationYear,
   purchaseYearIndex,
 }) => {
@@ -39,7 +37,6 @@ const CarValueChart: React.FC<CarValueChartProps> = ({
       year: registrationYear + index,
       value,
       isPurchaseYear: index === purchaseYearIndex,
-      isSimulated: isSimulated[index],
       range: [lowerBound, upperBound],
     };
   });
@@ -64,11 +61,6 @@ const CarValueChart: React.FC<CarValueChartProps> = ({
           {data.isPurchaseYear && (
             <p className="text-green-600 text-sm font-medium" style={{ marginTop: 4 }}>
               📅 Purchase Year
-            </p>
-          )}
-          {data.isSimulated && (
-            <p className="text-orange-500 text-xs italic" style={{ marginTop: 2 }}>
-              * Simulated value (market data missing)
             </p>
           )}
         </div>
@@ -129,19 +121,6 @@ const CarValueChart: React.FC<CarValueChartProps> = ({
             strokeWidth={3}
             dot={(props: any) => {
               const { cx, cy, payload } = props;
-              if (payload.isSimulated) {
-                return (
-                  <rect
-                    x={cx - 3}
-                    y={cy - 3}
-                    width={6}
-                    height={6}
-                    fill={payload.isPurchaseYear ? '#52c41a' : '#fa8c16'}
-                    stroke={payload.isPurchaseYear ? '#389e0d' : '#d46b08'}
-                    strokeWidth={1}
-                  />
-                );
-              }
               return (
                 <circle
                   cx={cx}
