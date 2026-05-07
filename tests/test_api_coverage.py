@@ -124,15 +124,17 @@ def test_estimate_internal_exception():
 
 def test_break_even_breakeven_found():
     # patch estimate_monthly_costs to return an object with low total_monthly_cost
+    # For break-even at month 1: purchase_price - estimated_final_value + total_monthly_cost <= rent_monthly_cost
+    # 1000 - 950 + 350 = 400 <= 400
     est = api_main.EstimateResponse(is_simulated=[False]*5, monthly_cost_during_loan=350.0, monthly_cost_after_loan=300.0, inflation_impact_total=100.0,
-        purchase_price=20000.0,
-        estimated_final_value=12000.0,
-        monthly_depreciation=200.0,
+        purchase_price=1000.0,
+        estimated_final_value=950.0,
+        monthly_depreciation=50.0,
         monthly_maintenance=100.0,
         loan_monthly_payment=50.0,
         loan_total_interest=500.0,
         total_monthly_cost=350.0,
-        year_values=[20000, 18000, 15000, 12000, 9000]
+        year_values=[1000, 950, 900, 850, 800]
     )
     with patch.object(api_main, "estimate_monthly_costs", return_value=est):
         payload = {
@@ -265,13 +267,14 @@ def test_estimate_backfill_zero_price():
             "loan_value": 0.0,
             "bank_rate_percent": 0.0,
             "loan_years": 0,
-            "shift_types": []
+            "shift_types": [],
+            "extend_missing_values": True
         }
         r = client.post("/api/estimate", json=payload)
         assert r.status_code == 200
         data = r.json()
-        # second entry should have been backfilled to first non-zero (30000)
-        assert data["year_values"][1] == 30000.0
+        # second entry should have been interpolated between 30000 and 25000 -> 27500
+        assert data["year_values"][1] == 27500.0
 
 
 def test_estimate_validation_error():
