@@ -10,16 +10,17 @@ import {
   notification,
   Input,
   InputNumber,
-  Alert
+  Alert,
+  Tooltip
 } from 'antd';
-import { CalculatorOutlined, ArrowsAltOutlined } from '@ant-design/icons';
+import { CalculatorOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import BrandModelForm from '../components/BrandModelForm/BrandModelForm';
 import LoanSection from '../components/LoanSection/LoanSection';
 import ResultsCard from '../components/ResultsCard/ResultsCard';
 import CarValueChart from '../components/Charts/CarValueChart';
-import BreakEvenModal from '../components/BreakEvenModal/BreakEvenModal';
-import SavedStudies from '../components/SavedStudies/SavedStudies';
+import BreakEvenChart from '../components/Charts/BreakEvenChart';
 import { useEstimate } from '../hooks/useEstimate';
+import { useBreakEvenAnalysis } from '../hooks/useBreakEvenAnalysis';
 import { EstimateRequest, EstimateResponse } from '../types/api';
 import { formatCurrency } from '../utils/numbers';
 
@@ -32,11 +33,12 @@ type ErrorBanner = {
 const EstimatorPage: React.FC = () => {
   const [form] = Form.useForm();
   const [results, setResults] = useState<EstimateResponse | null>(null);
-  const [breakEvenModalVisible, setBreakEvenModalVisible] = useState(false);
+  const [breakEvenResults, setBreakEvenResults] = useState<any>(null);
   const [manualPriceMode, setManualPriceMode] = useState(false);
   const [errorBanner, setErrorBanner] = useState<ErrorBanner | null>(null);
 
   const estimateMutation = useEstimate();
+  const breakEvenMutation = useBreakEvenAnalysis();
 
   const handleSubmit = async () => {
     try {
@@ -53,7 +55,7 @@ const EstimatorPage: React.FC = () => {
         number_of_years: values.number_of_years,
         purchase_year_index: values.purchase_year_index,
         monthly_maintenance: values.monthly_maintenance,
-        inflation_rate: values.inflation_rate,
+        inflation_rate: values.apply_inflation ? values.inflation_rate : 0,
         extend_missing_values: values.extend_missing_values,
         loan_value: values.loan_value,
         bank_rate_percent: values.bank_rate_percent,
@@ -63,6 +65,30 @@ const EstimatorPage: React.FC = () => {
 
       const response = await estimateMutation.mutateAsync(payload);
       setResults(response);
+
+      // Perform break-even analysis automatically
+      const breakEvenPayload = {
+        brand: payload.brand,
+        model: payload.model,
+        details: payload.details,
+        zip_code: payload.zip_code,
+        monthly_maintenance: payload.monthly_maintenance,
+        inflation_rate: values.apply_inflation ? values.inflation_rate : 0,
+        extend_missing_values: payload.extend_missing_values,
+        rent_monthly_cost: values.rent_monthly_cost || 400,
+        loan_value: payload.loan_value,
+        bank_rate_percent: payload.bank_rate_percent,
+        loan_years: payload.loan_years,
+        max_years: Math.round(payload.number_of_years * 1.5),
+        shift_types: payload.shift_types
+      };
+
+      try {
+        const beResponse = await breakEvenMutation.mutateAsync(breakEvenPayload);
+        setBreakEvenResults(beResponse);
+      } catch (error) {
+        console.error('Break-even analysis failed:', error);
+      }
 
       if (response.warning) {
         notification.warning({
@@ -110,17 +136,6 @@ const EstimatorPage: React.FC = () => {
     }
   };
 
-  const handleCompareToRenting = () => {
-    setBreakEvenModalVisible(true);
-  };
-
-  const handleLoadStudy = useCallback((data: EstimateRequest) => {
-    form.setFieldsValue(data);
-    setResults(null);
-    setManualPriceMode(false);
-    setErrorBanner(null);
-  }, [form]);
-
   const currentFormData = form.getFieldsValue() as EstimateRequest;
   const isFormValid = currentFormData.brand && currentFormData.model && 
                      currentFormData.zip_code && currentFormData.registration_year;
@@ -141,102 +156,118 @@ const EstimatorPage: React.FC = () => {
           </div>
         )}
 
-        <Card 
-          title={
-            <Space>
-              <CalculatorOutlined />
-              Car Price Estimator
-            </Space>
-          }
-          style={{ marginBottom: 24 }}
+        <Form
+          form={form}
+          layout="vertical"
+          requiredMark="optional"
+          initialValues={{
+            rent_monthly_cost: 400
+          }}
         >
           <Row gutter={[24, 24]}>
-            <Col xs={24} lg={16}>
-              <Form
-                form={form}
-                layout="vertical"
-                requiredMark="optional"
-              >
-                <Card title="Vehicle Information" size="small" style={{ marginBottom: 16 }}>
-                  <BrandModelForm form={form} disabled={estimateMutation.isPending} />
-                </Card>
-
-                <LoanSection disabled={estimateMutation.isPending} />
-
-                {manualPriceMode && (
-                  <Card title="Manual Price Entry" size="small" style={{ marginBottom: 16 }}>
-                    <Alert
-                      message="Service Unavailable"
-                      description="Since price data is temporarily unavailable, please enter the purchase price manually."
-                      type="warning"
-                      showIcon
-                      style={{ marginBottom: 16 }}
-                    />
-                    <Form.Item
-                      name="manual_purchase_price"
-                      label="Purchase Price"
-                      rules={[
-                        { required: true, message: 'Please enter purchase price' },
-                        { type: 'number', min: 1000, message: 'Price must be at least €1,000' }
-                      ]}
-                    >
-                      <InputNumber
-                        placeholder="€30,000"
-                        style={{ width: '100%' }}
-                        min={1000}
-                        max={500000}
-                        step={1000}
-                        formatter={value => `€ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                        parser={value => value!.replace(/€\s?|(,*)/g, '') as any}
-                        disabled={estimateMutation.isPending}
-                      />
-                    </Form.Item>
-                  </Card>
-                )}
-
-                <Space style={{ width: '100%', justifyContent: 'center' }}>
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<CalculatorOutlined />}
-                    onClick={handleSubmit}
-                    loading={estimateMutation.isPending}
-                  >
-                    Simulate Car Costs
-                  </Button>
-                  
-                  <Button
-                    type="default"
-                    size="large"
-                    icon={<ArrowsAltOutlined />}
-                    onClick={handleCompareToRenting}
-                    disabled={estimateMutation.isPending || !isFormValid}
-                  >
-                    Compare to Renting
-                  </Button>
-                </Space>
-              </Form>
+            <Col xs={24} lg={12}>
+              <Card title="Vehicle Information" size="small" style={{ height: '100%' }}>
+                <BrandModelForm form={form} disabled={estimateMutation.isPending} />
+              </Card>
             </Col>
-
-            <Col xs={24} lg={8}>
-              <SavedStudies 
-                currentData={isFormValid ? currentFormData : undefined}
-                onLoadStudy={handleLoadStudy}
-              />
+            <Col xs={24} lg={12}>
+              <Card title="Financial Parameters" size="small" style={{ height: '100%' }}>
+                <LoanSection disabled={estimateMutation.isPending} />
+                <Form.Item
+                  name="rent_monthly_cost"
+                  label={
+                    <span>
+                      Monthly Rent Cost{' '}
+                      <Tooltip title="Monthly cost of renting a similar car for comparison">
+                        <InfoCircleOutlined />
+                      </Tooltip>
+                    </span>
+                  }
+                  rules={[
+                    { required: true, message: 'Please enter monthly rent cost' },
+                    { type: 'number', min: 0, message: 'Rent cost must be positive' }
+                  ]}
+                >
+                  <InputNumber
+                    placeholder="€400"
+                    style={{ width: '100%' }}
+                    min={0}
+                    max={5000}
+                    step={50}
+                    formatter={value => `€ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={value => value!.replace(/€\s?|(,*)/g, '') as any}
+                    disabled={estimateMutation.isPending}
+                  />
+                </Form.Item>
+              </Card>
             </Col>
           </Row>
-        </Card>
+
+          {manualPriceMode && (
+            <Card title="Manual Price Entry" size="small" style={{ marginTop: 16 }}>
+              <Alert
+                message="Service Unavailable"
+                description="Since price data is temporarily unavailable, please enter the purchase price manually."
+                type="warning"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+              <Form.Item
+                name="manual_purchase_price"
+                label="Purchase Price"
+                rules={[
+                  { required: true, message: 'Please enter purchase price' },
+                  { type: 'number', min: 1000, message: 'Price must be at least €1,000' }
+                ]}
+              >
+                <InputNumber
+                  placeholder="€30,000"
+                  style={{ width: '100%' }}
+                  min={1000}
+                  max={500000}
+                  step={1000}
+                  formatter={value => `€ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={value => value!.replace(/€\s?|(,*)/g, '') as any}
+                  disabled={estimateMutation.isPending}
+                />
+              </Form.Item>
+            </Card>
+          )}
+
+          <div style={{ textAlign: 'center', marginTop: 24, marginBottom: 24 }}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<CalculatorOutlined />}
+              onClick={handleSubmit}
+              loading={estimateMutation.isPending}
+              style={{ minWidth: 200 }}
+            >
+              Simulate Car Costs
+            </Button>
+          </div>
+        </Form>
 
         {results && (
           <div id="results-section">
             <ResultsCard results={results} />
             
-            <CarValueChart
-              yearValues={results.year_values}
-              stdDev={results.price_stddev}
-              registrationYear={currentFormData.registration_year}
-              purchaseYearIndex={currentFormData.purchase_year_index}
-            />
+            <Row gutter={[16, 16]}>
+              <Col xs={24} lg={12}>
+                <CarValueChart
+                  yearValues={results.year_values}
+                  stdDev={results.price_stddev}
+                  isSimulated={results.is_simulated}
+                  registrationYear={currentFormData.registration_year}
+                  purchaseYearIndex={currentFormData.purchase_year_index}
+                />
+              </Col>
+              <Col xs={24} lg={12}>
+                {breakEvenResults && (
+                  <BreakEvenChart data={breakEvenResults} />
+                )}
+              </Col>
+            </Row>
           </div>
         )}
 
@@ -249,11 +280,6 @@ const EstimatorPage: React.FC = () => {
           </Card>
         )}
 
-        <BreakEvenModal
-          visible={breakEvenModalVisible}
-          onCancel={() => setBreakEvenModalVisible(false)}
-          estimateData={currentFormData}
-        />
       </div>
     </div>
   );
