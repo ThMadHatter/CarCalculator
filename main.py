@@ -165,7 +165,7 @@ def estimate_monthly_costs(req: EstimateRequest):
 
         calc = CarValueCalculator(year_values, req.number_of_years, req.monthly_maintenance, req.purchase_year_index, req.inflation_rate, req.loan_value)
         monthly_depr = calc.monthly_depreciation()
-        monthly_tot = calc.monthly_total_cost(loan_monthly)
+        monthly_tot = calc.monthly_total_cost(loan_monthly, req.loan_years)
 
         cost_during, cost_after, inflation_impact_total = calc.calculate_period_costs(loan_monthly, req.loan_years)
 
@@ -297,7 +297,7 @@ def break_even_analysis(req: BreakEvenAnalysisRequest):
                     loan_value=req.loan_value
                 )
 
-                monthly_cost = calc.monthly_total_cost(loan_monthly=loan_monthly)
+                monthly_cost = calc.monthly_total_cost(loan_monthly=loan_monthly, loan_years=req.loan_years)
                 overall_cost = monthly_cost * (years_owned * 12)
                 _, _, inflation_impact = calc.calculate_period_costs(loan_monthly, req.loan_years)
 
