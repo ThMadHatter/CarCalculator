@@ -28,14 +28,25 @@ const BreakEvenChart: React.FC<BreakEvenChartProps> = ({ data }) => {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const rentalPoint = payload.find((p: any) => p.name === 'Rental Cost');
       return (
         <div className="bg-white p-3 border rounded shadow-lg">
           <p className="font-medium">Years Owned: {label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }}>
-              {entry.name}: {formatCurrency(entry.value)}
-            </p>
-          ))}
+          {payload.map((entry: any, index: number) => {
+            const inflationImpact = entry.payload?.inflation_impact;
+            return (
+              <div key={index} style={{ marginBottom: 4 }}>
+                <p style={{ color: entry.color, margin: 0 }}>
+                  {entry.name}: {formatCurrency(entry.value)}
+                </p>
+                {inflationImpact > 0 && entry.name !== 'Rental Cost' && (
+                  <p className="text-gray-400 text-xs italic" style={{ margin: 0 }}>
+                    (incl. {formatCurrency(inflationImpact)} inflation)
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       );
     }

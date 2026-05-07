@@ -281,28 +281,42 @@ const BrandModelForm: React.FC<BrandModelFormProps> = ({ form, disabled = false 
         </Col>
 
         <Col xs={24} sm={12}>
-          <Form.Item
-            name="inflation_rate"
-            label={
-              <span>
-                Annual Inflation (%) {' '}
-                <Tooltip title="Annual inflation rate to apply to maintenance costs">
-                  <InfoCircleOutlined />
-                </Tooltip>
-              </span>
-            }
-            initialValue={2.0}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              max={20}
-              step={0.1}
-              formatter={value => `${value}%`}
-              parser={value => value!.replace('%', '') as any}
-              disabled={disabled}
-            />
-          </Form.Item>
+          <Row gutter={8} align="bottom">
+            <Col flex="auto">
+              <Form.Item
+                name="inflation_rate"
+                label={
+                  <span>
+                    Annual Inflation (%) {' '}
+                    <Tooltip title="Annual inflation rate to apply to maintenance costs">
+                      <InfoCircleOutlined />
+                    </Tooltip>
+                  </span>
+                }
+                initialValue={2.0}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  max={20}
+                  step={0.1}
+                  formatter={value => `${value}%`}
+                  parser={value => value!.replace('%', '') as any}
+                  disabled={disabled}
+                />
+              </Form.Item>
+            </Col>
+            <Col>
+              <Form.Item
+                name="apply_inflation"
+                label="Apply"
+                valuePropName="checked"
+                initialValue={true}
+              >
+                <Switch disabled={disabled} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Col>
 
         <Col xs={24} sm={12}>
