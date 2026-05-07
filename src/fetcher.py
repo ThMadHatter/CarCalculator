@@ -189,12 +189,12 @@ class Fetcher:
         s = node_text.replace("\xa0", " ")
 
         # Regex notes:
-        # - '€\\s*'                : Euro symbol followed by optional whitespace
-        # - '((?:\\d{1,3}(?:[.\\s]\\d{3})+|\\d+))' : capture the integer-euro part
-        #        Either:           1..3 digits + one or more (separator + 3 digits) groups (e.g. 53.900, 1 234 567)
+        # - '[€$]\\s*'             : Euro or Dollar symbol followed by optional whitespace
+        # - '((?:\\d{1,3}(?:[.\\s,]\\d{3})+|\\d+))' : capture the integer part
+        #        Either:           1..3 digits + one or more (separator + 3 digits) groups (e.g. 53.900, 1 234 567, 9,999)
         #        Or:               a plain integer (e.g. 49900)
-        # - '(?:,\\d{1,2})?'       : optional decimal part with comma (ignored, not captured)
-        pattern = re.compile(r"€\s*((?:\d{1,3}(?:[.\s]\d{3})+|\d+))(?:,\d{1,2})?")
+        # - '(?:[.,]\\d{1,2})?'    : optional decimal part (ignored, not captured)
+        pattern = re.compile(r"[€$]\s*((?:\d{1,3}(?:[.\s,]\d{3})+|\d+))(?:[.,]\d{1,2})?")
 
         matches = [m.group(1) for m in pattern.finditer(s)]
         if not matches:
@@ -203,8 +203,8 @@ class Fetcher:
         # Take the last euro amount found (typical format shows current price last)
         last = matches[-1]
 
-        # Normalize thousand separators (dot/space) and cast to int
-        last = last.replace(" ", "").replace(".", "")
+        # Normalize thousand separators (dot/space/comma) and cast to int
+        last = last.replace(" ", "").replace(".", "").replace(",", "")
         try:
             return int(last)
         except ValueError:

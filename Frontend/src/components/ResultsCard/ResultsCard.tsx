@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, Row, Col, Statistic, Divider, Space, Tag } from 'antd';
-import { TrophyOutlined, BankOutlined, ToolOutlined, CarOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Divider, Space, Tag, Tooltip } from 'antd';
+import { TrophyOutlined, BankOutlined, ToolOutlined, CarOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { EstimateResponse } from '../../types/api';
 import { formatCurrency } from '../../utils/numbers';
 
@@ -17,6 +17,9 @@ const ResultsCard: React.FC<ResultsCardProps> = ({ results }) => {
     loan_monthly_payment,
     loan_total_interest,
     total_monthly_cost,
+    monthly_cost_during_loan,
+    monthly_cost_after_loan,
+    inflation_impact_total,
   } = results;
 
   const totalDepreciation = purchase_price - estimated_final_value;
@@ -32,9 +35,9 @@ const ResultsCard: React.FC<ResultsCardProps> = ({ results }) => {
       }
       style={{ marginBottom: 16 }}
     >
-      <Row gutter={[16, 16]}>
+      <Row gutter={[24, 24]}>
         {/* Primary metrics */}
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={6}>
           <Statistic
             title="Purchase Price"
             value={purchase_price}
@@ -43,7 +46,7 @@ const ResultsCard: React.FC<ResultsCardProps> = ({ results }) => {
           />
         </Col>
         
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={6}>
           <Statistic
             title="Estimated Final Value"
             value={estimated_final_value}
@@ -52,92 +55,121 @@ const ResultsCard: React.FC<ResultsCardProps> = ({ results }) => {
           />
         </Col>
         
-        <Col xs={24} sm={8}>
-          <div>
-            <Statistic
-              title="Total Monthly Cost"
-              value={total_monthly_cost}
-              formatter={value => formatCurrency(value as number)}
-              prefix={<BankOutlined />}
-            />
-            <Tag color="blue" style={{ marginTop: 4 }}>
-              All expenses included
-            </Tag>
-          </div>
+        <Col xs={24} sm={6}>
+          <Statistic
+            title={
+              <span>
+                Avg. Monthly Cost{' '}
+                <Tooltip title="Average cost per month over the entire ownership period, including depreciation, maintenance, and loan.">
+                  <InfoCircleOutlined style={{ fontSize: '12px' }} />
+                </Tooltip>
+              </span>
+            }
+            value={total_monthly_cost}
+            formatter={value => formatCurrency(value as number)}
+            prefix={<BankOutlined />}
+            valueStyle={{ fontWeight: 'bold' }}
+          />
+        </Col>
+
+        <Col xs={24} sm={6}>
+          <Statistic
+            title={
+              <span>
+                Inflation Impact{' '}
+                <Tooltip title="Total additional cost due to inflation over the ownership period.">
+                  <InfoCircleOutlined style={{ fontSize: '12px' }} />
+                </Tooltip>
+              </span>
+            }
+            value={inflation_impact_total}
+            formatter={value => `+ ${formatCurrency(value as number)}`}
+            valueStyle={{ color: inflation_impact_total > 0 ? '#ff4d4f' : 'inherit', fontSize: '18px' }}
+          />
         </Col>
       </Row>
 
-      <Divider />
+      <Divider style={{ margin: '16px 0' }} />
+
+      <Row gutter={[24, 24]}>
+        {/* Period-specific costs */}
+        <Col xs={24} sm={8}>
+          <Card size="small" type="inner" title="During Loan Period">
+            <Statistic
+              value={monthly_cost_during_loan || 0}
+              formatter={value => formatCurrency(value as number)}
+              suffix="/ month"
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+
+        {monthly_cost_after_loan !== null && (
+          <Col xs={24} sm={8}>
+            <Card size="small" type="inner" title="After Loan Period">
+              <Statistic
+                value={monthly_cost_after_loan}
+                formatter={value => formatCurrency(value as number)}
+                suffix="/ month"
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Card>
+          </Col>
+        )}
+
+        <Col xs={24} sm={monthly_cost_after_loan !== null ? 8 : 16}>
+           <Card size="small" type="inner" title="Value Retention">
+            <Statistic
+              value={valueRetained}
+              formatter={value => `${(value as number).toFixed(1)}%`}
+              valueStyle={{
+                color: valueRetained > 50 ? '#52c41a' : valueRetained > 30 ? '#fa8c16' : '#ff4d4f'
+              }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Divider style={{ margin: '16px 0' }} />
 
       <Row gutter={[16, 16]}>
         {/* Monthly breakdown */}
-        <Col xs={24} sm={6}>
+        <Col xs={12} sm={6}>
           <Statistic
-            title="Monthly Depreciation"
+            title="Monthly Depr."
             value={monthly_depreciation}
             formatter={value => formatCurrency(value as number)}
-            valueStyle={{ color: '#ff4d4f' }}
+            valueStyle={{ color: '#ff4d4f', fontSize: '16px' }}
           />
         </Col>
         
-        <Col xs={24} sm={6}>
+        <Col xs={12} sm={6}>
           <Statistic
-            title="Monthly Maintenance"
+            title="Avg. Maint."
             value={monthly_maintenance}
             formatter={value => formatCurrency(value as number)}
             prefix={<ToolOutlined />}
-            valueStyle={{ color: '#fa8c16' }}
+            valueStyle={{ color: '#fa8c16', fontSize: '16px' }}
           />
         </Col>
         
-        <Col xs={24} sm={6}>
+        <Col xs={12} sm={6}>
           <Statistic
             title="Loan Payment"
             value={loan_monthly_payment}
             formatter={value => formatCurrency(value as number)}
             prefix={<BankOutlined />}
-            valueStyle={{ color: '#1890ff' }}
+            valueStyle={{ color: '#1890ff', fontSize: '16px' }}
           />
         </Col>
         
-        <Col xs={24} sm={6}>
+        <Col xs={12} sm={6}>
           <Statistic
             title="Total Interest"
             value={loan_total_interest}
             formatter={value => formatCurrency(value as number)}
-            valueStyle={{ color: '#722ed1' }}
+            valueStyle={{ color: '#722ed1', fontSize: '16px' }}
           />
-        </Col>
-      </Row>
-
-      <Divider />
-
-      <Row gutter={[16, 16]}>
-        {/* Additional insights */}
-        <Col xs={24} sm={12}>
-          <Statistic
-            title="Total Depreciation"
-            value={totalDepreciation}
-            formatter={value => formatCurrency(value as number)}
-            valueStyle={{ color: '#ff4d4f' }}
-          />
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-            Over entire ownership period
-          </div>
-        </Col>
-        
-        <Col xs={24} sm={12}>
-          <Statistic
-            title="Value Retention"
-            value={valueRetained}
-            formatter={value => `${(value as number).toFixed(1)}%`}
-            valueStyle={{ 
-              color: valueRetained > 50 ? '#52c41a' : valueRetained > 30 ? '#fa8c16' : '#ff4d4f' 
-            }}
-          />
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-            Percentage of original value retained
-          </div>
         </Col>
       </Row>
     </Card>

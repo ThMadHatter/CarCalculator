@@ -37,6 +37,10 @@ class EstimateResponse(BaseModel):
     loan_total_interest: float
     total_monthly_cost: float
     year_values: List[float]
+    is_simulated: List[bool] = Field(default_factory=list)
+    monthly_cost_during_loan: Optional[float] = None
+    monthly_cost_after_loan: Optional[float] = None
+    inflation_impact_total: float = 0.0
     warning: Optional[str] = None
     price_stddev: Optional[List[float]] = None
     adjusted_number_of_years: Optional[int] = None
@@ -74,6 +78,7 @@ class DataPoint(BaseModel):
     years_owned: int
     overall_cost: float
     monthly_cost: float
+    inflation_impact: float = 0.0
 
 class PurchaseYearSeries(BaseModel):
     purchase_description: str
