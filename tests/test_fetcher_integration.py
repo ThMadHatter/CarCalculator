@@ -101,7 +101,7 @@ def test_live_end_to_end_fetch_and_parse():
         "shift_type": []
     }
     try:
-        price, _ = f.fetch_car_costs(selected_values)
+        price = f.fetch_car_costs(selected_values)
     except FetchError as e:
         pytest.skip(f"fetch_car_costs failed (network/parsing): {e}")
 

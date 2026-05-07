@@ -67,14 +67,11 @@ class CarValueCalculator:
 
     def monthly_depreciation(self, years: int = None) -> float:
         """
-        Return average monthly depreciation over the planned ownership horizon.
-        Formula: (Purchase Price - loan_amount - Estimated Final Value) / months
-        This avoids double counting the loan principal repayment which is in the monthly payment.
+        Return monthly depreciation over the planned ownership horizon.
+        If loan_value > 0, it is subtracted from the initial purchase price to avoid double counting
+        capital repayment (as it is included in the loan monthly payment).
         """
         years = years or self.number_of_years
-        if years <= 0:
-            return 0.0
-
         start_value = self.year_values[self.purchase_year_index]
         end_index = self.purchase_year_index + years
         end_value = self.year_values[end_index]
@@ -82,42 +79,17 @@ class CarValueCalculator:
         # Adjusted depreciation: (Purchase Price - loan_amount - Estimated Final Value)
         total_depr = start_value - self.loan_value - end_value
 
+        if years <= 0:
+            return 0.0
+
         return total_depr / (years * 12.0)
 
     def monthly_total_cost(self, loan_monthly: float = 0.0, years: int = None) -> float:
-        """Average monthly cost over years: (Adjusted Depreciation + average maintenance) + loan monthly payment"""
+        """Average monthly cost over years: (Adjusted Depreciation + maintenance) / months + loan monthly payment"""
         years = years or self.number_of_years
         if years <= 0:
             return self.monthly_maintenance + loan_monthly
 
-        months = years * 12.0
-        avg_depr = self.monthly_depreciation(years=years)
+        total_depr = self.monthly_depreciation(years=years) * (years * 12.0)
         total_maint = self.total_maintenance_cost(years)
-        avg_maint = total_maint / months
-
-        return avg_depr + avg_maint + loan_monthly
-
-    def calculate_period_costs(self, loan_monthly: float, loan_years: int):
-        """
-        Calculate costs for different periods: during loan and after loan.
-        """
-        years = self.number_of_years
-        months = years * 12
-        loan_months = min(loan_years * 12, months)
-
-        avg_depr = self.monthly_depreciation()
-
-        # Total maintenance over full period
-        total_maint = self.total_maintenance_cost(years)
-        avg_maint = total_maint / months
-
-        # Inflation impact: total maintenance with inflation - total maintenance without inflation
-        inflation_impact_total = total_maint - (self.monthly_maintenance * months)
-
-        cost_during = avg_depr + avg_maint + loan_monthly
-
-        cost_after = None
-        if loan_months < months:
-            cost_after = avg_depr + avg_maint
-
-        return cost_during, cost_after, inflation_impact_total
+        return (total_depr + total_maint) / (years * 12.0) + loan_monthly
