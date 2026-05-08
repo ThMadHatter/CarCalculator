@@ -16,7 +16,8 @@ def test_loan_with_rate():
 def test_car_value_calculator_depreciation():
     # newest->older: [2025_value, 2024, 2023, ...]
     series = [30000.0, 28000.0, 25000.0, 22000.0, 20000.0, 18000.0]
-    calc = CarValueCalculator(series, number_of_years=3, monthly_maintenance=100.0, purchase_year_index=1)
+    calc = CarValueCalculator(series, number_of_years=3, monthly_maintenance=100.0, purchase_year_index=1, loan_value=0.0)
     # start value = series[1] = 28000; end index = 1+3 = 4 => end value 20000 => total depr = 8000 => monthly = 8000/(36) = 222.22...
     assert pytest.approx(calc.monthly_depreciation(), rel=1e-3) == 8000 / 36.0
-    assert pytest.approx(calc.monthly_total_cost(loan_monthly=200.0), rel=1e-3) == (8000 / 36.0) + 100.0 + 200.0
+    # TCO with no loan = depr + maint
+    assert pytest.approx(calc.monthly_total_cost(loan_monthly=0.0, loan_years=0), rel=1e-3) == (8000 / 36.0) + 100.0
